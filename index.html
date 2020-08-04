@@ -1,0 +1,144 @@
+﻿<!doctype html>
+<html>
+	<head>
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script> 
+		<meta charset="utf-8">
+		<title>TensorFlow</title>
+
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.4/dist/tf.min.js"></script>
+	</head>
+	<body>
+	   <nav class="navbar navbar-expand-sm bg-primary d-flex justify-content-center">
+	     <ul class="navbar-nav">
+	       <li class="nav-item">
+	         <a class="nav-link text-white" href="#">
+				<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Tensorflow_logo.svg/1200px-Tensorflow_logo.svg.png" width="40px" style="float: center;">
+	     	 </a>
+	       </li>
+	     </ul>
+	   </nav>
+	   <br>
+	   <div class="container">
+	     <h2>Prdicate Imobiliário</h2>
+	     <p>TensorFlow</p>
+
+	     <input type="file" class="form-control" onchange="abrir(event)"><br>
+
+	     <input type="number" id="metros" class="form-control" placeholder="tamanho em m²" /><br>
+	     <input type="number" id="idade" class="form-control" placeholder="idade em anos" /><br>
+
+	     <button class="btn btn-lg btn-warning" onclick="executar()">Executar</button><br><br>
+
+	     <input type="text" id="preco" class="form-control" placeholder="precificação em R$" /><br>
+
+	     <p id="result" align="right"></p>
+
+	   </div>
+
+	   <script type="text/javascript">
+			$('#result').text('');
+
+			let arrX = [];
+			let arrY = [];
+
+			function exibir(str='') {
+				$('#result').text(str);
+			}
+
+			function abrir(event) {
+				let file = event.target.value;
+				file = file.replace(/\\/g, '-');
+				let arr = file.split('-');
+				carregar('/arquivos/'+arr[arr.length-1]);
+			}
+
+			function carregar(str) {
+				$.ajax({
+					url: str,
+					dataType: 'text',
+					success: function(data) {
+						let caractere = ',';
+						if(data.indexOf(';') >= 0) caractere = ';';
+						let arrLinha = data.split('\r\n');
+
+						let titulos = arrLinha[0].split(caractere);
+						let qtdEntradas = titulos.filter(function(x) { return x == 'input'; }).length;
+
+						let X = [];
+						let Y = [];
+						for(let i=1; i<arrLinha.length; i++) {
+							let arrCelula = arrLinha[i].split(caractere);
+							let sumX = 0;
+							for(let j=0; j<arrCelula.length; j++) {
+								if(arrCelula[j].toString().trim().length > 0) {
+									if(j<qtdEntradas)
+										sumX += parseFloat(arrCelula[j]);
+									else
+										Y.push([parseFloat(arrCelula[j])]);
+								}
+							}
+
+							if(sumX>0) X.push(parseFloat(sumX/qtdEntradas));
+						}
+
+						arrX = X;
+						arrY = Y;
+
+						exibir('dados carregados com sucesso.');
+						$('#metros').val('');
+						$('#idade').val('');
+						$('#preco').val('');
+					}
+				});
+			}
+
+			function executar() {
+				exibir('...processando.');
+				let input = (parseFloat($('#metros').val()) + parseFloat($('#idade').val())) / 2;
+				NeuralNetwork(input);
+			}
+
+			function NeuralNetwork(Input) {
+				exibir('...processando.');
+
+				let units = 1;
+				let inputShape = 1;
+				let linesX = Number(arrX.length);
+				let linesInput = 1;
+
+				const model = tf.sequential();
+				const inputLayer = tf.layers.dense({units: units, inputShape: [inputShape]});
+				model.add(inputLayer);
+				model.compile({loss: 'meanSquaredError', optimizer: tf.train.sgd(.00001)});
+
+				const x = tf.tensor(arrX, [linesX, inputShape]);
+				const y = tf.tensor(arrY);
+				const input = tf.tensor(Input, [linesInput, inputShape]);
+
+				model.fit(x, y, {epochs: 240}).then(() => {
+					let output = model.predict(input).dataSync();
+					output = converteArray(output);
+					output = aproximaOutput(output);
+					$('#preco').val(output);
+					exibir('concluído.');
+				});
+			}
+
+			function converteArray(array) {
+				let result = [];
+				for(let i=0; i<array.length; i++) {
+					result.push(Math.ceil(array[i].toFixed(0)));
+				}
+				return result;
+			}
+
+			function aproximaOutput(number) {
+				let two = number.toString().substr(0, 2);
+				return Number(two.padEnd(number.toString().length, 0));
+			}	   	
+	   </script>
+	</body>
+</html>
